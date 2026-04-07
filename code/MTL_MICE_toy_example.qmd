@@ -1,0 +1,130 @@
+---
+title: "MTL MICE Toy Example"
+format: html
+editor: visual
+---
+
+```{r message=FALSE, warning=FALSE}
+#| include: false
+rm(list = ls())
+
+# Load Packages and Functions
+library(readr)
+library(foreach)
+library(glmnet)
+library(caret)
+library(doParallel)
+library(parallel)
+library(tidyverse)
+library(mice)
+library(glmtrans)
+
+scripts.sources <-  list.files("./code/R",
+                               pattern="*.R$", full.names=TRUE,
+                               ignore.case=TRUE)
+sapply(scripts.sources,source,.GlobalEnv)
+
+set.seed(2025)
+```
+
+# Simulate the data
+
+```{r}
+n <- 100    # Number of observations
+p <- 10    # Total number of variables
+mi <- 4    # Number of incomplete variables
+s <- p-mi     # Number of complete variables
+v <- 3    # Number of variables contribute to incomplete data
+E0 <- matrix(rep(2, v * mi), nrow = v, ncol = mi)  # Coefficient matrix for v
+k <- 4    # Number of tasks
+h <- 0.5    # Variation Parameter for the tasks
+ncores <- 1    # Number of cores
+```
+
+# Simulate the data
+
+`simulate.scenario` function is used to simulate the data. The function takes the following arguments: - `K`: Number of tasks - `n`: Number of observations - `p`: Total number of variables - `s`: Number of complete variables - `v`: Number of variables contribute to incomplete data - `baseline_params`: Coefficient matrix for v - `h`: Variation Parameter for the tasks - `eta`: Error term - `cluster_sizes`: Number of tasks in each clusters - `simulate_clusters`: Logical value to simulate clusters - `complete_data_type`: Type of complete data and corresponding ratios - `incomplete_data_type`: Type of incomplete data and corresponding ratios
+
+The output of `simulate.scenario` is a list of tasks. Each task contains the following elements: - `data`: Data - `B`: Coefficient matrix - `covariates`: Covariates for the missing variables
+
+```{r}
+dat <- simulate.scenario.shared(K = k, n = n, p = p, s = s, v = v, baseline_params = list(E0), h = 0, eta = 0, cluster_sizes = c(k, 0), simulate_clusters = F, complete_data_type = c(norm = 1, binom = 0), incomplete_data_type = c(norm = 0.5, binom = 0.5))
+
+# Extract the data for each task and form a new list
+data <- lapply(dat, function(x) x$data)
+```
+
+# Simulate Missing Data
+
+`mar.sim` function is used to simulate the missing data following Missing at Random(MAR). The function takes the following arguments: - `data`: Data - `covaraite`: Covariate for the generate missing data - `where.missing`: Variables where missing data is to be simulated - `prop.missing`: Proportion of missing data
+
+```{r}
+# simulate the missing at random
+dat.mar <- mar.sim(data = data, covaraite = "c_x1", where.missing = c("ic_x1","ic_x2","ic_x3", "ic_x4"), prop.missing = 0.1)
+```
+
+# Imputation
+
+`mtlmice` function is used to impute the missing data. The function takes the following arguments: - `data`: List of multiple tasks of data with missing values (data can be data frame or matrix) - `rawdata`: Data without missing values (remove, move to erroe rate) - `m`: Number of imputations - `maxit`: Maximum number of iterations - `transfer.id.mode`: Mode for transfering the id, which takes values "auto" (MTL-MICE:with source detection), "all" (pooled MTL-MICE: using all tasks), "none" (single-task MICE) - `cores`: Number of cores - `family`: Family of the model - `lambda.transfer`: Lambda value for transfering the tasks. It can take values "lambda.1se" (1 standard error rule), "lambda.min" (minimum lambda value) - `lambda.debias`: Lambda value for debiasing the tasks. It can take values "lambda.1se" (1 standard error rule), "lambda.min" (minimum lambda value) - `lambda.detection`: Lambda value for detection. It can take values "lambda.1se" (1 standard error rule), "lambda.min" (minimum lambda value) - `correction`: Logical value to apply coeffcient correction
+
+The output of `mtlmice` is an imputed mtlmice object, which includes following elements: - `data`: input data with missing values - `where`: logical matrix indicating missing values location - `imp`: imputed data - `dat.imp.init`: initial imputed data - `dat.imp.final`: final imputed data - `models`: list of models for each variables, which includes the following elements: - `beta`: final coefficients for prediction/imputation - `family`: family of the model - `transfer id`: id of the tasks that are used for transferring - `fitting list`: list of coefficients and bias correcting coefficients
+
+```{r}
+
+mtlmice.pool.imp <- mtlmice(data = dat.mar, m = 2, maxit = 2, transfer.id.mode = "all", cores = ncores, lambda.transfer = "lambda.1se", lambda.debias = "lambda.1se", lambda.detection = "lambda.1se",
+                            correction = TRUE)
+
+mtlmice.imp <- mtlmice(data = dat.mar, m = 2, maxit = 2, transfer.id.mode = "auto", cores = 1, lambda.transfer = "lambda.1se", lambda.debias = "lambda.1se", lambda.detection = "lambda.1se",
+                       correction = TRUE)
+
+mtlmice0.imp<- mtlmice(data = dat.mar, m = 2, maxit = 2, transfer.id.mode = "auto", cores = ncores, lambda.transfer = "lambda.1se", lambda.debias = "lambda.1se", lambda.detection = "lambda.1se",
+                       correction = FALSE)
+
+mice.imp  <- mtlmice(data = dat.mar, m = 2, maxit = 2, transfer.id.mode = "none", cores = ncores, lambda.transfer = "lambda.1se", lambda.debias = "lambda.1se", lambda.detection = "lambda.1se",
+                      correction = TRUE)
+
+mice.pool.imp  <- mtlmice(data = dat.mar, m = 2, maxit = 2, transfer.id.mode = "none_all", cores = ncores, lambda.transfer = "lambda.1se", lambda.debias = "lambda.1se", lambda.detection = "lambda.1se",
+                      correction = TRUE)
+```
+
+# Evaluation
+
+`error.rate` function is used to evaluate the imputation. The function takes the following arguments: - `imp`: Imputed mtlmice object - `data`: Raw Data
+
+```{r}
+#| warning: false
+output_mtlmice_pool <- error.rate(mtlmice.pool.imp, dat)
+output_mtlmice <- error.rate(mtlmice.imp, dat)
+output_mtlmice0 <- error.rate(mtlmice0.imp, dat)
+output_mice <- error.rate(mice.imp, dat)
+output_mice_pool <- error.rate(mice.pool.imp, dat)
+
+output_mtlmice_pool
+output_mtlmice
+output_mtlmice0
+output_mice
+output_mice_pool
+
+```
+
+# Extract the imputed data
+
+`complete.data` function is used to extract the imputed data. The function takes the following arguments: - `imp`: Imputed data - `action`: Action to be performed on the imputed data. It can take values "long" (long format), "stacked" (stacked format), "all" (all format), 1L (long format), c(2,3) (stacked format)
+
+```{r}
+# change the output data to tibble
+complete_data <- complete.data(mtlmice.imp, action = "long")
+head(complete_data[[1]])
+
+complete_data <- complete.data(mtlmice.imp, action = "stacked")
+head(complete_data[[1]])
+
+complete_data <- complete.data(mtlmice.imp, action = "all")
+head(complete_data[[1]][[1]])
+
+complete_data <- complete.data(mtlmice.imp, action = 1L)
+head(complete_data[[1]])
+
+complete_data <- complete.data(mtlmice.imp, action = c(2,3))
+head(complete_data[[1]])
+```

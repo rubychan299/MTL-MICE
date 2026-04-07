@@ -1,9 +1,21 @@
-Please replace the contents of this file with relevant instructions for your repository or remove this file entirely.
+This directory contains the public data inputs used in the MTL-MICE case study
+and the scripts used to prepare those data for analysis.
 
-This directory would generally contain the real data files (or facsimile versions of them in place of confidential data) and simulated data files.
+## Contents
 
-Cleaned data that are produced by processing raw input data might also be placed here.
+- `uselection/`: county-level U.S. election and covariate files used in the
+  real-data application.
+- `uselection/bystate_2020/uselect_list2020.RData`: processed list of
+  state-level tasks used by the manuscript's 2020 election analysis.
+- `data_cleaning_uselection.R`: builds the state-level task objects and missing
+  data replicates from the raw election files.
+- `vars_selection_uselection.R`: helper functions for screening and comparing
+  candidate covariates in the election data.
 
-Code to generate the simulated data and (if relevant) and facsimile data provided in place of confidential real data might also be placed here. 
+## Notes
 
-Code for data cleaning could potentially also be placed here rather than in `code`.
+- The 2020 case-study files required by the manuscript are included in this
+  repository.
+- `data_cleaning_uselection.R` also contains an archival 2024 preprocessing
+  block. That part only runs if the additional 2024 raw CSV files are placed in
+  `data/uselection/`.

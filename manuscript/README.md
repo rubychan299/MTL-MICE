@@ -1,3 +1,10 @@
-Please replace the contents of this file with relevant instructions for your repository or remove this file entirely. Also remove `JASA-template.zip` (after extracting the contents as needed).
+This directory contains the manuscript source files for the MTL-MICE paper.
 
-This directory would generally contain the manuscript source files, including the LaTeX or Rmd file for the manuscript, and figure files and files containing tabular information.
+## Contents
+
+- `mtlmice.tex`: main LaTeX source for the manuscript.
+- `supplement.tex`: LaTeX source for the supplement.
+- `references.bib`: bibliography database.
+- `agsm.bst`: bibliography style file.
+- `plots/`: figure copies used by the manuscript source.
+
