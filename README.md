@@ -1,4 +1,4 @@
-# MTL-MICE
+# MTL-MICE: Multi-Task Learning in Multiple Imputation by Chained Equation
 
 This repository contains the public reproducibility materials for the paper "MTL-MICE: Multi-Task Learning in Multiple Imputation by Chained Equation" by Yuyu Chen and Yang Feng.
 
